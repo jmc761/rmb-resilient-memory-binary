@@ -1,38 +1,8 @@
-/// Represents an exact 16-byte entry in our .idx file
-/// We use repr(C) to ensure the compiler does not reorder fields.
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct IndexRecord {
-    pub offset: u64, // 8 bytes (bytes 0 through 7)
-    pub id: u32,     // 4 bytes (bytes 8 through 11)
-    pub length: u32, // 4 bytes (bytes 12 through 15)
-                     // Total exact: 16 bytes. Zero padding.
-}
+pub mod record;
+pub mod reader;
 
-impl IndexRecord {
-    /// Converts our struct to raw 16 bytes (Little Endian)
-    /// This is what we write directly to disk.
-    pub fn to_le_bytes(&self) -> [u8; 16] {
-        let mut buf = [0u8; 16];
-        
-        // Copy each field's bytes into the general buffer
-        buf[0..8].copy_from_slice(&self.offset.to_le_bytes());
-        buf[8..12].copy_from_slice(&self.id.to_le_bytes());
-        buf[12..16].copy_from_slice(&self.length.to_le_bytes());
-        
-        buf
-    }
-
-    /// Reads raw 16 bytes (from mmap) and converts it into our struct
-    pub fn from_le_bytes(buf: &[u8]) -> Self {
-        // Extract each chunk and convert back to numbers
-        let offset = u64::from_le_bytes(buf[0..8].try_into().unwrap());
-        let id = u32::from_le_bytes(buf[8..12].try_into().unwrap());
-        let length = u32::from_le_bytes(buf[12..16].try_into().unwrap());
-        
-        Self { offset, id, length }
-    }
-}
+pub use record::IndexRecord;
+pub use reader::IndexReader;
 
 #[cfg(test)]
 mod tests {
@@ -43,7 +13,7 @@ mod tests {
         // Create a test record
         let record = IndexRecord {
             offset: 5_000_000, // Suppose the record is at byte 5 million of the JSONL
-            id: 23737,         // Narcotics law
+            id: 23737,         // "Ley de Estupefacientes" Narcotics law
             length: 1024,      // JSON size is 1 KB
         };
 
@@ -60,5 +30,48 @@ mod tests {
         assert_eq!(record, reconstructed);
         
         println!("The record serializes and deserializes perfectly to 16 bytes!");
+    }
+
+    #[test]
+    fn test_index_reader() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Create a temporary file that will auto-destroy at the end of the test
+        let mut temp_file = NamedTempFile::new().expect("Could not create temporary file");
+
+        // Create 3 test records sorted by ID
+        let rec1 = IndexRecord { offset: 100, id: 10, length: 50 };
+        let rec2 = IndexRecord { offset: 200, id: 25, length: 80 }; // The one we'll search for
+        let rec3 = IndexRecord { offset: 300, id: 40, length: 90 };
+
+        // Write the raw bytes directly to the file on disk
+        temp_file.write_all(&rec1.to_le_bytes()).unwrap();
+        temp_file.write_all(&rec2.to_le_bytes()).unwrap();
+        temp_file.write_all(&rec3.to_le_bytes()).unwrap();
+        
+        // It's vital to force the OS to flush buffers to disk before mmap
+        temp_file.flush().unwrap(); 
+
+        // Instantiate our real reader by passing the temporary file path
+        let file_path = temp_file.path().to_str().unwrap();
+        let reader = IndexReader::new(file_path).expect("Failed to mmap the file");
+
+        // Test
+        let result = reader.find_by_id(25);
+
+        // Verify that the search worked and brought the correct record
+        assert!(result.is_some(), "Should have found ID 25");
+        
+        let found_record = result.unwrap();
+        assert_eq!(found_record.id, 25);
+        assert_eq!(found_record.offset, 200);
+        assert_eq!(found_record.length, 80);
+
+        // Test searching for a non-existent ID to ensure it doesn't crash
+        let does_not_exist = reader.find_by_id(999);
+        assert!(does_not_exist.is_none(), "Should not find ID 999");
+
+        println!("The IndexReader works perfectly with mmap!");
     }
 }
