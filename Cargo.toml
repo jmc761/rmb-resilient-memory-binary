@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "rmb-core",
+    "indexer",
+    "api"
+]
+resolver = "2"
