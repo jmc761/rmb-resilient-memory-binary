@@ -21,7 +21,7 @@ impl IndexReader {
         Ok(Self { mmap })
     }
 
-    /// Searches for a law by its ID using Binary Search (O(log N))
+    /// Searches for a record by its ID using Binary Search (O(log N))
     /// ASSUMES: That the .idx file was sorted from lowest to highest ID by our Indexer.
     pub fn find_by_id(&self, target_id: u32) -> Option<IndexRecord> {
         let record_size = 16;

@@ -13,7 +13,7 @@ mod tests {
         // Create a test record
         let record = IndexRecord {
             offset: 5_000_000, // Suppose the record is at byte 5 million of the JSONL
-            id: 23737,         // "Ley de Estupefacientes" Narcotics law
+            id: 23737,         // 
             length: 1024,      // JSON size is 1 KB
         };
 

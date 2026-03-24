@@ -16,6 +16,7 @@ dependencies = [
  "memmap2",
  "rmb-core",
  "tokio",
+ "tower",
 ]
 
 [[package]]

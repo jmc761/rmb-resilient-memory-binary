@@ -8,3 +8,6 @@ axum = "0.8.8"
 memmap2 = "0.9.10"
 rmb-core = { path = "../rmb-core" }
 tokio = { version = "1.50.0", features = ["full"] }
+
+[dev-dependencies]
+tower = "0.5.3"
